@@ -70,6 +70,7 @@ const Preview = () => {
       <div className="story-list">
         <table className="table table-bordered">
           <tbody>
+                  
             {/* Group stories in pairs for two columns */}
             {stories.reduce((rows, story, index) => {
               if (index % 2 === 0) {
@@ -81,7 +82,7 @@ const Preview = () => {
             }, []).map((row, rowIndex) => (
               <tr key={rowIndex}>
                 {row.map((story, colIndex) => (
-                  <td key={colIndex} style={{ textAlign: "left" }}>
+                  <td key={colIndex} style={{ textAlign: "left", width: "50%", border: "1px solid black" }}>
                     {story.storyImage && (
                       <img
                         src={`data:image/jpeg;base64,${story.storyImage}`}
