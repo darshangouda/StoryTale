@@ -11,7 +11,7 @@ const StoryTale = () => {
   const [stories, setStories] = useState([]); // List of stories in the table
   const [isLoading, setIsLoading] = useState(false); // For loading indicator
   const hasFetched = useRef(false);
-
+  const [loadingRows, setLoadingRows] = useState([]); // Track loading rows
   // Reset state variables to their initial values
   const resetState = () => {
     setTitle("");
@@ -24,7 +24,7 @@ const StoryTale = () => {
   const fetchStoryDetails = async (id) => {
     try {
       setIsLoading(true);
-      console.log("StoryID",storyID);
+      console.log("StoryID", storyID);
       const response = await axios.get(`http://localhost:8080/API/stories/${id}`, { withCredentials: true });
       setTitle(response.data.storyTitle || "");
       const sortedStories = (response.data.storyLines || []).sort((a, b) => a.index - b.index);
@@ -38,17 +38,17 @@ const StoryTale = () => {
 
   useEffect(() => {
     //console.log("hasFetched.current",hasFetched.current);
-    if(storyID==0){
+    if (storyID == 0) {
       resetState();
       return;
-      }
+    }
     if (hasFetched.current) return;
-    
-      setStoryIDState(parseInt(storyID, 10));
-      hasFetched.current = true;
-      fetchStoryDetails(parseInt(storyID, 10));
+
+    setStoryIDState(parseInt(storyID, 10));
+    hasFetched.current = true;
+    fetchStoryDetails(parseInt(storyID, 10));
   }, [storyID]);
-  
+
 
   // Save title
   const saveTitle = () => {
@@ -72,7 +72,7 @@ const StoryTale = () => {
   // Add a new row
   const addNewRow = () => {
     const newIndex = stories.length > 0 ? stories[stories.length - 1].index + 1 : 1;
-    setStories([...stories, { index: newIndex,imagePrompt:"", storyLine: "", storyImage: "" }]);
+    setStories([...stories, { index: newIndex, imagePrompt: "", storyLine: "", storyImage: "" }]);
   };
 
   // Handle text change in story rows
@@ -93,14 +93,14 @@ const StoryTale = () => {
     const story = stories[row];
     const storyText = story?.storyLine || "";
     const imagePrompt = story?.imagePrompt || "";
-  
+
     if (action === "generate") {
       if (!imagePrompt.trim()) {
         alert(`Row ${row + 1} has an empty image prompt! Please add text.`);
         return;
       }
-  
-      setIsLoading(true);
+
+      setLoadingRows((prev) => [...prev, row]); // Add row to loading state
       axios
         .get(
           `http://localhost:8080/API/stories/${storyIDState}/image/${index}/${encodeURIComponent(imagePrompt)}`,
@@ -117,13 +117,15 @@ const StoryTale = () => {
           alert(`Image generated for row ${row + 1}!`);
         })
         .catch((error) => console.error("Error generating image:", error))
-        .finally(() => setIsLoading(false));
+        .finally(() => {
+          setLoadingRows((prev) => prev.filter((r) => r !== row)); // Remove row from loading state
+        });
     } else if (action === "save") {
       if (!storyText.trim()) {
         alert(`Row ${row + 1} has an empty story line! Please add text.`);
         return;
       }
-  
+      
       axios
         .post(
           `http://localhost:8080/API/stories/${storyIDState}/content/${index}/${encodeURIComponent(storyText)}`,
@@ -142,7 +144,7 @@ const StoryTale = () => {
         .catch((error) => console.error("Error deleting row:", error));
     }
   };
-  
+
   const handlePreviewClick = () => {
     navigate(`/preview/${storyIDState}`);
   };
@@ -204,16 +206,25 @@ const StoryTale = () => {
             <tr key={row}>
               <td>{row + 1}</td>
               <td>
-                <img
-                  src={
-                    story.storyImage
-                      ? `data:image/jpeg;base64,${story.storyImage}`
-                      : "https://placehold.jp/180x180.png"
-                  }
-                  alt={`Story ${story.id}`}
-                  style={{ width: "220px", height: "auto" }}
-                />
+                {loadingRows.includes(row) ? (
+                  <img
+                    src="https://media2.giphy.com/media/v1.Y2lkPTc5MGI3NjExODRrZjQ1b3duNXdid2lqeWplaWpvdmp1MTk2YXJsM2czdWVrMmhjdiZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/xTk9ZvMnbIiIew7IpW/giphy.gif"
+                    alt="Loading..."
+                    style={{ width: "220px", height: "auto" }}
+                  />
+                ) : (
+                  <img
+                    src={
+                      story.storyImage
+                        ? `data:image/jpeg;base64,${story.storyImage}`
+                        : "https://placehold.jp/180x180.png"
+                    }
+                    alt={`Story ${story.id}`}
+                    style={{ width: "220px", height: "auto" }}
+                  />
+                )}
               </td>
+
               <td>
                 <b>Image Prompt</b>
                 <textarea
