@@ -53,7 +53,7 @@ public class AuthController {
 
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody StoryWriter loginRequest, HttpServletResponse response) {
-        System.out.println(loginRequest.getWriterName()+":"+loginRequest.getWriterPassword());
+        //System.out.println(loginRequest.getWriterName()+":"+loginRequest.getWriterPassword());
         try {
             // Attempt authentication
             Authentication authentication = authManager.authenticate(
