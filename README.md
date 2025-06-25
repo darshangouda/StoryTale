@@ -27,6 +27,7 @@ StoryTale leverages AI technology to generate images that writers can use to com
 - Java
 - Spring Boot
   - Spring Web
+  - RESTful API
   - Spring Security
   - Spring Data JPA
   - Spring AI (OpenAI)
