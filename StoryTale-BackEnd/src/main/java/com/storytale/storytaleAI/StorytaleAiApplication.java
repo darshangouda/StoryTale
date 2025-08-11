@@ -8,10 +8,6 @@ import io.github.cdimascio.dotenv.Dotenv;
 public class StorytaleAiApplication {
 
 	public static void main(String[] args) {
-		// Load the .env file
-		Dotenv dotenv = Dotenv.load();
-		System.setProperty("OPENAI_KEY", dotenv.get("OPENAI_KEY"));
-
 		SpringApplication.run(StorytaleAiApplication.class, args);
 	}
 }
