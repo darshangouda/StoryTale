@@ -1,12 +1,12 @@
 import React, { useState } from "react";
 import { BrowserRouter, Route, Routes, Navigate } from "react-router-dom";
-import HeaderComponent from "./components/HeaderComponent";
 import FooterComponent from "./components/FooterComponent";
-import LoginPage from "./components/LoginPage";
+import HeaderComponent from "./components/HeaderComponent";
 import RegisterPage from "./components/RegisterPage";
-import StoryTale from "./components/StoryTale";
+import LoginPage from "./components/LoginPage";
 import ListStoryTale from "./components/ListStoryTale";
 import Preview from "./components/Preview";
+import StoryTale from "./components/StoryTale";
 
 const ProtectedRoute = ({ element }) => {
   const isAuthenticated = !!localStorage.getItem("authToken");
