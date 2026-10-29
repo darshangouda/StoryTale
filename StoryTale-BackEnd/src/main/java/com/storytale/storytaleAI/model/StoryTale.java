@@ -1,11 +1,8 @@
 package com.storytale.storytaleAI.model;
 import jakarta.persistence.*;
-import lombok.Getter;
-import lombok.Setter;
 
 import java.util.List;
-@Getter
-@Setter
+
 @Entity
 public class StoryTale {
 
@@ -28,5 +25,37 @@ public class StoryTale {
     public StoryTale(Integer storyId, String storyTitle) {
         this.storyId = storyId;
         this.storyTitle = storyTitle;
+    }
+
+    public Integer getStoryId() {
+        return storyId;
+    }
+
+    public String getStoryTitle() {
+        return storyTitle;
+    }
+
+    public StoryWriter getStoryWriter() {
+        return storyWriter;
+    }
+
+    public List<StoryLine> getStoryLines() {
+        return storyLines;
+    }
+
+    public void setStoryId(Integer storyId) {
+        this.storyId = storyId;
+    }
+
+    public void setStoryTitle(String storyTitle) {
+        this.storyTitle = storyTitle;
+    }
+
+    public void setStoryWriter(StoryWriter storyWriter) {
+        this.storyWriter = storyWriter;
+    }
+
+    public void setStoryLines(List<StoryLine> storyLines) {
+        this.storyLines = storyLines;
     }
 }

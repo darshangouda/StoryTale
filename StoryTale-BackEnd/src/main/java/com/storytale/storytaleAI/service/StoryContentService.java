@@ -38,24 +38,27 @@ public class StoryContentService {
         try {
             StoryTale storyTale = storyTaleRepository.findById(storyId)
                     .orElseThrow(() -> new RuntimeException("Story not found with ID: " + storyId));
-            // Generate the image based on storyText
+            System.out.println("[ImageGen] storyId=" + storyId + ", index=" + index + ", prompt=" + imagePrompt);
+
             String base64imageText = generateBase64ImageAsString(imagePrompt);
-            // Create a composite key for the StoryLine
-            StoryLineId storyLineId = new StoryLineId(storyTale.getStoryId(), index);
-            // Check if the StoryLine already exists
+            if (base64imageText == null || base64imageText.isBlank()) {
+                throw new RuntimeException("Image generation failed: no image data returned from OpenAI.");
+            }
+
+            StoryLineId storyLineId = new StoryLineId(storyTale, index);
             StoryLine storyLine = storyLineRepository.findById(storyLineId).orElse(new StoryLine());
-            // Update or create the StoryLine object
             storyLine.setIndex(index);
             storyLine.setStoryImage(base64imageText);
             storyLine.setImagePrompt(imagePrompt);
-            storyLine.setStoryTale(storyTale); // Associate with the existing StoryTale
+            storyLine.setStoryTale(storyTale);
 
-            // Save the updated or new StoryLine
             storyLineRepository.save(storyLine);
 
+            System.out.println("[ImageGen] Success for storyId=" + storyId + ", index=" + index + ", imageLength=" + base64imageText.length());
             return new ResponseEntity<>(base64imageText, HttpStatus.OK);
         } catch (Exception e) {
-            // Handle errors and return an error response
+            System.out.println("[ImageGen] Error generating image for storyId=" + storyId + ", index=" + index + ": " + e.getMessage());
+            e.printStackTrace(System.out);
             return new ResponseEntity<>("Error generating image: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
@@ -66,7 +69,7 @@ public class StoryContentService {
             StoryTale storyTale = storyTaleRepository.findById(storyId)
                     .orElseThrow(() -> new RuntimeException("Story not found with ID: " + storyId));
             // Create a composite key for the StoryLine
-            StoryLineId storyLineId = new StoryLineId(storyTale.getStoryId(), index);
+            StoryLineId storyLineId = new StoryLineId(storyTale, index);
             // Fetch the StoryLine if it exists
             StoryLine storyLine = storyLineRepository.findById(storyLineId)
                     .orElseThrow(() -> new RuntimeException("Story section not found for index: " + index));
@@ -100,20 +103,45 @@ public class StoryContentService {
     }
     public String generateBase64ImageAsString(String storyText){
         try {
-            OpenAiImageOptions openAiImageOptions=new OpenAiImageOptions(); //.builder().withStyle("vivid").withResponseFormat("b64_json").build();
+            System.out.println("[ImageGen API] Request prompt: " + storyText);
+            OpenAiImageOptions openAiImageOptions=new OpenAiImageOptions();
+            openAiImageOptions.setModel("gpt-image-1"); // use a model available for the current API key/account
             openAiImageOptions.setHeight(1024);
             openAiImageOptions.setWidth(1024);
-            //openAiImageOptions.setModel("dall-e-2"); //default:dall-e-3
             //openAiImageOptions.setStyle("natural");
             //openAiImageOptions.setN(2); //No. of Images, support only in dall-e-2
-            openAiImageOptions.setResponseFormat("b64_json"); // default: url
             ImagePrompt imagePrompt=new ImagePrompt(storyText,openAiImageOptions);
+            System.out.println("[ImageGen API] Sending request to OpenAI image model...");
             ImageResponse imageResponse = openAiImageModel.call(imagePrompt);
-            return
-                    imageResponse.getResult().getOutput().getB64Json();
+            System.out.println("[ImageGen API] Response object: " + imageResponse);
+
+            if (imageResponse != null && imageResponse.getResult() != null && imageResponse.getResult().getOutput() != null) {
+                String base64 = imageResponse.getResult().getOutput().getB64Json();
+                if (base64 != null && !base64.isBlank()) {
+                    System.out.println("[ImageGen API] Received base64 image length: " + base64.length());
+                    return base64;
+                }
+
+                String imageUrl = imageResponse.getResult().getOutput().getUrl();
+                if (imageUrl != null && !imageUrl.isBlank()) {
+                    try {
+                        byte[] imageBytes = new java.net.URL(imageUrl).openStream().readAllBytes();
+                        String encoded = Base64.getEncoder().encodeToString(imageBytes);
+                        System.out.println("[ImageGen API] Received URL image length: " + encoded.length());
+                        return encoded;
+                    } catch (Exception urlException) {
+                        System.out.println("[ImageGen API] Failed to download image URL: " + urlException.getMessage());
+                        urlException.printStackTrace(System.out);
+                    }
+                }
+            }
+
+            System.out.println("[ImageGen API] No image data returned from OpenAI response.");
+            return null;
         }
         catch (Exception e) {
-            e.printStackTrace();
+            System.out.println("[ImageGen API] Error: " + e.getMessage());
+            e.printStackTrace(System.out);
             return null;
         }
     }
