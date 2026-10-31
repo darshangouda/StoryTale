@@ -9,6 +9,8 @@ import org.springframework.ai.image.ImageResponse;
 import org.springframework.ai.openai.OpenAiImageModel;
 import org.springframework.ai.openai.OpenAiImageOptions;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
@@ -17,11 +19,22 @@ import org.springframework.stereotype.Service;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.util.StreamUtils;
 import java.io.IOException;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.time.Duration;
 import java.util.Base64;
+import java.util.UUID;
 //get current user name
 
 @Service
 public class StoryContentService {
+
+    private static final HttpClient HTTP_CLIENT = HttpClient.newBuilder()
+            .followRedirects(HttpClient.Redirect.NORMAL)
+            .connectTimeout(Duration.ofSeconds(10))
+            .build();
 
     @Autowired
     private StoryLineRepository storyLineRepository;
@@ -33,7 +46,14 @@ public class StoryContentService {
     private CurrentUserService currentUserService;
 
     @Autowired
-    private OpenAiImageModel openAiImageModel;
+    private ObjectProvider<OpenAiImageModel> openAiImageModelProvider;
+
+    @Value("${app.image-generation.provider:picsum}")
+    private String imageGenerationProvider;
+
+    @Value("${OPENAI_KEY:}")
+    private String openAiApiKey;
+
     public ResponseEntity<?> generateImage(int storyId, int index, String imagePrompt) {
         try {
             StoryTale storyTale = storyTaleRepository.findById(storyId)
@@ -42,7 +62,7 @@ public class StoryContentService {
 
             String base64imageText = generateBase64ImageAsString(imagePrompt);
             if (base64imageText == null || base64imageText.isBlank()) {
-                throw new RuntimeException("Image generation failed: no image data returned from OpenAI.");
+                throw new RuntimeException("Image generation failed: no image data was returned.");
             }
 
             StoryLineId storyLineId = new StoryLineId(storyTale, index);
@@ -70,12 +90,12 @@ public class StoryContentService {
                     .orElseThrow(() -> new RuntimeException("Story not found with ID: " + storyId));
             // Create a composite key for the StoryLine
             StoryLineId storyLineId = new StoryLineId(storyTale, index);
-            // Fetch the StoryLine if it exists
+            // Create the section on first save, even if no image has been generated yet.
             StoryLine storyLine = storyLineRepository.findById(storyLineId)
-                    .orElseThrow(() -> new RuntimeException("Story section not found for index: " + index));
-            // Update the storyText without affecting the existing image
+                    .orElseGet(StoryLine::new);
+            storyLine.setIndex(index);
+            storyLine.setStoryTale(storyTale);
             storyLine.setStoryLine(storyText);
-            // Save the updated StoryLine
             storyLineRepository.save(storyLine);
             return new ResponseEntity<>("Story content updated successfully", HttpStatus.OK);
         } catch (Exception e) {
@@ -102,6 +122,17 @@ public class StoryContentService {
         }
     }
     public String generateBase64ImageAsString(String storyText){
+        if ("picsum".equalsIgnoreCase(imageGenerationProvider)) {
+            return getRandomPicsumImageAsBase64();
+        }
+        if (!"openai".equalsIgnoreCase(imageGenerationProvider)) {
+            throw new IllegalStateException("Unsupported image generation provider: " + imageGenerationProvider);
+        }
+
+        if (openAiApiKey.isBlank()) {
+            throw new IllegalStateException("Set OPENAI_KEY to use OpenAI image generation.");
+        }
+
         try {
             System.out.println("[ImageGen API] Request prompt: " + storyText);
             OpenAiImageOptions openAiImageOptions=new OpenAiImageOptions();
@@ -112,6 +143,10 @@ public class StoryContentService {
             //openAiImageOptions.setN(2); //No. of Images, support only in dall-e-2
             ImagePrompt imagePrompt=new ImagePrompt(storyText,openAiImageOptions);
             System.out.println("[ImageGen API] Sending request to OpenAI image model...");
+            OpenAiImageModel openAiImageModel = openAiImageModelProvider.getIfAvailable();
+            if (openAiImageModel == null) {
+                throw new IllegalStateException("OpenAI image model is not configured.");
+            }
             ImageResponse imageResponse = openAiImageModel.call(imagePrompt);
             System.out.println("[ImageGen API] Response object: " + imageResponse);
 
@@ -146,5 +181,27 @@ public class StoryContentService {
         }
     }
 
-}
+    private String getRandomPicsumImageAsBase64() {
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create("https://picsum.photos/1024/1024.jpg?random=" + UUID.randomUUID()))
+                .timeout(Duration.ofSeconds(30))
+                .GET()
+                .build();
+        try {
+            HttpResponse<byte[]> response = HTTP_CLIENT.send(request, HttpResponse.BodyHandlers.ofByteArray());
+            String contentType = response.headers().firstValue("Content-Type").orElse("");
+            if (response.statusCode() < 200 || response.statusCode() >= 300
+                    || !contentType.toLowerCase().startsWith("image/")) {
+                throw new IOException("Picsum returned an invalid image response (HTTP "
+                        + response.statusCode() + ", Content-Type: " + contentType + ").");
+            }
+            return Base64.getEncoder().encodeToString(response.body());
+        } catch (IOException e) {
+            throw new IllegalStateException("Could not retrieve a test image from Picsum.", e);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("Retrieving a test image from Picsum was interrupted.", e);
+        }
+    }
 
+}

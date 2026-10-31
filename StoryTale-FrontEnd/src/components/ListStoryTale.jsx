@@ -1,10 +1,9 @@
-import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 
 const ListStoryTale = () => {
   const [stories, setStories] = useState([]);
-  const { user } = 'admin';//useParams(); // Get user parameter from URL
   const navigate = useNavigate(); // To navigate programmatically
 
   useEffect(() => {
@@ -15,7 +14,7 @@ const ListStoryTale = () => {
       .catch(error => {
         console.error("Error fetching stories:", error);
       });
-  }, [user]);
+  }, []);
 
   const handleUpdate = (storyId) => {
     navigate(`/storytale/${storyId}`);
@@ -36,7 +35,16 @@ const ListStoryTale = () => {
 
   return (
     <div className="container">
-      <h2>Story List</h2>
+      <div className="d-flex justify-content-between align-items-center mb-3">
+        <h2>My Stories</h2>
+        <button
+          type="button"
+          className="btn btn-primary"
+          onClick={() => navigate('/storytale/0')}
+        >
+          Create Story Tale
+        </button>
+      </div>
       <table className="table">
         <thead>
           <tr>

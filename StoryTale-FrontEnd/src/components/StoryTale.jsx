@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";
 import "./StoryTale.css"; // Add CSS for loading spinner
@@ -71,6 +71,10 @@ const StoryTale = () => {
 
   // Add a new row
   const addNewRow = () => {
+    if (storyIDState <= 0) {
+      alert("Save the story title before adding sections.");
+      return;
+    }
     const newIndex = stories.length > 0 ? stories[stories.length - 1].index + 1 : 1;
     setStories([...stories, { index: newIndex, imagePrompt: "", storyLine: "", storyImage: "" }]);
   };
@@ -88,60 +92,66 @@ const StoryTale = () => {
     setStories(updatedStories);
   };
 
-  // Handle generate/save/delete actions
-  const handleActionChange = (index, row, action) => {
+  const handleAction = async (index, row, action) => {
     const story = stories[row];
     const storyText = story?.storyLine || "";
     const imagePrompt = story?.imagePrompt || "";
 
     if (action === "generate") {
       if (!imagePrompt.trim()) {
-        alert(`Row ${row + 1} has an empty image prompt! Please add text.`);
+        alert(`Row ${row + 1}: enter an image prompt first.`);
         return;
       }
 
-      setLoadingRows((prev) => [...prev, row]); // Add row to loading state
-      axios
-        .get(
+      setLoadingRows((prev) => [...prev, row]);
+      try {
+        const response = await axios.get(
           `http://localhost:8080/API/stories/${storyIDState}/image/${index}/${encodeURIComponent(imagePrompt)}`,
-          {
-            responseType: "text",
-            withCredentials: true,
-          }
-        )
-        .then((response) => {
-          const base64Image = response.data;
-          const updatedStories = [...stories];
-          updatedStories[row].storyImage = base64Image;
-          setStories(updatedStories);
-          alert(`Image generated for row ${row + 1}!`);
-        })
-        .catch((error) => console.error("Error generating image:", error))
-        .finally(() => {
-          setLoadingRows((prev) => prev.filter((r) => r !== row)); // Remove row from loading state
-        });
+          { responseType: "text", withCredentials: true }
+        );
+        setStories((prev) =>
+          prev.map((item, itemRow) =>
+            itemRow === row ? { ...item, storyImage: response.data } : item
+          )
+        );
+        alert(`Image and prompt saved for row ${row + 1}.`);
+      } catch (error) {
+        console.error("Error generating image:", error);
+        alert(error.response?.data || "Could not generate and save the image.");
+      } finally {
+        setLoadingRows((prev) => prev.filter((r) => r !== row));
+      }
     } else if (action === "save") {
       if (!storyText.trim()) {
-        alert(`Row ${row + 1} has an empty story line! Please add text.`);
+        alert(`Row ${row + 1}: enter a story paragraph first.`);
         return;
       }
-      
-      axios
-        .post(
+
+      try {
+        await axios.post(
           `http://localhost:8080/API/stories/${storyIDState}/content/${index}/${encodeURIComponent(storyText)}`,
           {},
           { withCredentials: true }
-        )
-        .then(() => alert(`Row ${row + 1} saved successfully!`))
-        .catch((error) => console.error("Error saving row:", error));
+        );
+        alert(`Paragraph saved for row ${row + 1}.`);
+      } catch (error) {
+        console.error("Error saving paragraph:", error);
+        alert(error.response?.data || "Could not save the paragraph.");
+      }
     } else if (action === "delete") {
-      axios
-        .delete(`http://localhost:8080/API/stories/${storyIDState}/section/${index}`, { withCredentials: true })
-        .then(() => {
-          alert(`Row ${row + 1} deleted successfully!`);
-          setStories(stories.filter((_, rowrow) => rowrow !== row));
-        })
-        .catch((error) => console.error("Error deleting row:", error));
+      if (!window.confirm(`Delete story section ${row + 1}? This cannot be undone.`)) {
+        return;
+      }
+      try {
+        await axios.delete(
+          `http://localhost:8080/API/stories/${storyIDState}/section/${index}`,
+          { withCredentials: true }
+        );
+        setStories((prev) => prev.filter((_, itemRow) => itemRow !== row));
+      } catch (error) {
+        console.error("Error deleting section:", error);
+        alert(error.response?.data || "Could not delete the story section.");
+      }
     }
   };
 
@@ -165,7 +175,7 @@ const StoryTale = () => {
           <tr>
             <th style={{ width: "20%" }}>Story ID</th>
             <th style={{ width: "60%" }}>Story Title</th>
-            <th style={{ width: "10%" }}>Action</th>
+            <th style={{ width: "20%" }}>Action</th>
           </tr>
         </thead>
         <tbody>
@@ -195,10 +205,10 @@ const StoryTale = () => {
       <table className="table" style={{ tableLayout: "fixed", width: "100%" }}>
         <thead>
           <tr>
-            <th style={{ width: "3%" }}>No.</th>
-            <th style={{ width: "45%" }}>Image</th>
-            <th style={{ width: "40%" }}>Story</th>
-            <th style={{ width: "10%" }}>Action</th>
+            <th style={{ width: "5%" }}>No.</th>
+            <th style={{ width: "30%" }}>Image</th>
+            <th style={{ width: "45%" }}>Story</th>
+            <th style={{ width: "20%" }}>Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -243,29 +253,51 @@ const StoryTale = () => {
                   rows={3}
                 />
               </td>
-              <td>
-                <select
-                  className="form-control form-control-sm"
-                  onChange={(e) => handleActionChange(story.index, row, e.target.value)}
+              <td className="d-flex flex-column gap-2">
+                <button
+                  type="button"
+                  className="btn btn-primary btn-sm"
+                  disabled={loadingRows.includes(row) || !story.imagePrompt?.trim()}
+                  onClick={() => handleAction(story.index, row, "generate")}
                 >
-                  <option value="">Select Action</option>
-                  <option value="generate">Generate</option>
-                  <option value="save">Save</option>
-                  <option value="delete">Delete</option>
-                </select>
+                  {loadingRows.includes(row) ? "Generating..." : "Generate Image & Save Prompt"}
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-success btn-sm"
+                  disabled={!story.storyLine?.trim()}
+                  onClick={() => handleAction(story.index, row, "save")}
+                >
+                  Save Paragraph
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-outline-danger btn-sm"
+                  onClick={() => handleAction(story.index, row, "delete")}
+                >
+                  Delete Section
+                </button>
               </td>
             </tr>
           ))}
         </tbody>
       </table>
 
-      <button className="btn btn-primary" onClick={addNewRow}>
-        +
-      </button>
-      <br />
-      <button className="btn btn-success mt-3" onClick={handlePreviewClick}>
-        Preview
-      </button>
+      {storyIDState > 0 ? (
+        <button className="btn btn-primary" onClick={addNewRow}>
+          +
+        </button>
+      ) : (
+        <p className="text-muted">Save the story title before adding sections.</p>
+      )}
+      {storyIDState > 0 && (
+        <>
+          <br />
+          <button className="btn btn-success mt-3" onClick={handlePreviewClick}>
+            Preview
+          </button>
+        </>
+      )}
     </div>
   );
 };

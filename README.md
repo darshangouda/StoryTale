@@ -57,10 +57,12 @@ StoryTale leverages AI technology to generate images that writers can use to com
    git clone https://github.com/darshangouda/storytale.git
    ```
 3. Navigate to the backend directory.
-4. Add your OpenAI API key in the `.env` file:
+4. Image generation uses random test photos from Lorem Picsum by default. To use OpenAI image generation instead, set these environment variables:
    ```env
+   IMAGE_GENERATION_PROVIDER=openai
    OPENAI_KEY="your_openai_api_key"
    ```
+   Picsum images are random photos and do not reflect the story prompt. To use the default Picsum test images, no image-generation API key is required.
 5. Build and run the Spring Boot application.
    ```bash
    mvn spring-boot:run
@@ -79,9 +81,10 @@ StoryTale leverages AI technology to generate images that writers can use to com
 
 ## Environment Variables
 
-The following environment variable must be set in the `.env` file: (create `StoryTale-BackEnd/.env` file)
+To enable OpenAI image generation, set these variables in the backend environment (or `StoryTale-BackEnd/.env`):
 
 ```env
+IMAGE_GENERATION_PROVIDER=openai
 OPENAI_KEY="your_openai_api_key"
 ```
 
@@ -96,4 +99,3 @@ Developed by [Darshangouda](https://github.com/darshangouda).
 ## License
 
 This project is not licensed.
-

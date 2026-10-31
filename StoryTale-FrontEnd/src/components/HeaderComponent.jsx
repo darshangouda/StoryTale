@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import axios from "axios";
 
@@ -74,11 +74,6 @@ const HeaderComponent = ({ isAuthenticated, onLogout }) => {
             <ul className="navbar-nav ms-auto">
               {isAuthenticated ? (
                 <>
-                  <li className="nav-item">
-                    <Link className="nav-link" to="/storytale/0">
-                      Create Story Tale
-                    </Link>
-                  </li>
                   <li className="nav-item">
                     <Link className="nav-link" to="/mystories">
                       My Stories
